@@ -1,0 +1,1 @@
+node mcp-docs-server.js

@@ -1,0 +1,27 @@
+{
+  "profiles": {
+    "Redux Toolkit": {
+      "seedUrls": ["https://redux-toolkit.js.org/introduction/getting-started"],
+      "chunk": { "size": 3500, "overlap": 200 },
+      "ignore": ["**/node_modules/**", "**/*.lock"]
+    },
+    "Colyseus": {
+      "seedUrls": ["https://docs.colyseus.io"],
+      "chunk": { "size": 3500, "overlap": 200 },
+      "ignore": ["**/node_modules/**", "**/*.lock"]
+    },
+    "react-three": {
+      "seedUrls": [
+        "https://r3f.docs.pmnd.rs/getting-started/introduction",
+        "https://drei.docs.pmnd.rs/getting-started/introduction"
+      ],
+      "chunk": { "size": 3500, "overlap": 200 },
+      "ignore": ["**/node_modules/**", "**/*.lock"]
+    },
+    "next.js": {
+      "seedUrls": ["https://nextjs.org/docs"],
+      "chunk": { "size": 3500, "overlap": 200 },
+      "ignore": ["**/node_modules/**", "**/*.lock"]
+    }
+  }
+}
