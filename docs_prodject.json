@@ -1,0 +1,14 @@
+{
+  "local_recurses": {
+    "project": {
+      "type": "local",
+      "root": ".",
+      "include": ["**/*.js", "**/*.ts", "**/*.md"],
+      "exclude": ["node_modules/**", "docs-index/**"],
+      "chunk": {
+        "size": 2500,
+        "overlap": 200
+      }
+    }
+  }
+}

@@ -3,13 +3,19 @@
   "version": "0.0.1",
   "type": "module",
   "description": "Local docs MCP server",
-  "main": "mcp-docs-server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node mcp-docs-server.js"
+    "start": "node --no-deprecation index.js"
   },
   "dependencies": {
-    "node-fetch": "^2.6.7",
+    "@babel/parser": "^7.28.5",
+    "@babel/traverse": "^7.28.5",
+    "@babel/types": "^7.28.5",
+    "@modelcontextprotocol/sdk": "^1.24.3",
+    "chokidar": "^5.0.0",
+    "fast-glob": "^3.3.3",
     "jsdom": "^21.1.0",
+    "node-fetch": "^2.6.7",
     "parse5": "6.0.1"
   }
 }

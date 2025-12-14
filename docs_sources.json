@@ -1,5 +1,5 @@
 {
-  "profiles": {
+  "web_recurses": {
     "Redux Toolkit": {
       "seedUrls": ["https://redux-toolkit.js.org/introduction/getting-started"],
       "chunk": { "size": 3500, "overlap": 200 },

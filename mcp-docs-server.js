@@ -1,358 +1,346 @@
 #!/usr/bin/env node
 /**
- * mcp-docs-server.js v3
- * MCP (STDIO) wrapper for your index.js engine.
- *
- * - Content-Length framed JSON-RPC (MCP) for Continue/Cursor
- * - Tools: search_chunks, build_context, refresh_index, get_sources, preload_docs, list_tools
- * - CLI mode: call with a command name to run legacy CLI behavior
- * - Auto-preload: --auto-preload or AUTO_PRELOAD=1
- *
- * Place this file next to your index.js (the engine you already provided).
- * package.json must contain "type": "module" (you're using ESM).
+ * Unified MCP Docs Engine
+ * - Web docs indexing (HTML → text → chunks)
+ * - Project indexing (AST → symbols → structured chunks)
+ * - Single BM25-based search core
+ * - Separate indexes per engineId: web | project
+ * - High-precision context builder for LLMs
  */
 
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import fs from "node:fs/promises";
+import fssync from "node:fs";
 import path from "node:path";
-import util from "node:util";
+import crypto from "node:crypto";
+import fetch from "node-fetch";
+import { JSDOM } from "jsdom";
+import glob from "fast-glob";
+import * as babel from "@babel/parser";
+import traverse from "@babel/traverse";
+import chokidar from "chokidar";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+/* ===================== CONFIG ===================== */
 
-// import engine functions (your index.js)
-import {
-  list_tools,
-  get_sources,
-  search_chunks,
-  build_context,
-  refresh_index,
-  preloadDocs,
-} from "./index.js";
+const ROOT = process.cwd();
+const INDEX_ROOT = path.join(ROOT, "docs-index");
 
-/* ---------- Helpers ---------- */
-function stderr(...args) {
-  console.error("[mcp-docs-server]", ...args);
+const ENGINES = {
+  web: {
+    sourcesFile: "docs_sources.json",
+    indexDir: "web",
+    chunkDefaults: { size: 3500, overlap: 200 },
+  },
+  project: {
+    sourcesFile: "docs_project.json",
+    indexDir: "project",
+    chunkDefaults: { size: 2500, overlap: 200 },
+  },
+};
+
+const SEARCH_CONFIG = {
+  topK: 12,
+  k1: 1.5,
+  b: 0.75,
+};
+
+const TOKEN_ESTIMATE = {
+  charsPerToken: 4,
+  defaultBudget: 2500,
+  maxBudget: 6000,
+};
+
+/* ===================== STORAGE ===================== */
+
+async function ensureEngineStore(engineId) {
+  const dir = path.join(INDEX_ROOT, ENGINES[engineId].indexDir);
+  await fs.mkdir(dir, { recursive: true });
+  await initJson(path.join(dir, "chunks.json"), { chunks: [] });
 }
-function safeStringify(obj) {
-  try {
-    return JSON.stringify(obj);
-  } catch {
-    return JSON.stringify(util.inspect(obj, { depth: 3 }));
+
+function enginePath(engineId, file) {
+  return path.join(INDEX_ROOT, ENGINES[engineId].indexDir, file);
+}
+
+async function initJson(file, initial) {
+  if (!fssync.existsSync(file)) {
+    await fs.writeFile(file, JSON.stringify(initial, null, 2));
   }
 }
 
-/* ---------- CLI fallback (if invoked with a command) ---------- */
-async function runCliFallback() {
-  const cmd = process.argv[2];
-  try {
-    if (!cmd || cmd === "help") {
-      console.log("mcp-docs-server — available commands:");
-      console.log("  list_tools");
-      console.log("  get_sources");
-      console.log("  search_chunks <jsonPayload>");
-      console.log("  build_context <jsonPayload>");
-      console.log("  refresh_index <jsonPayload>");
-      console.log("  preload_docs");
-      console.log("\nExamples:");
-      console.log(
-        '  node mcp-docs-server.js search_chunks \'{"query":"auth middleware","topK":8}\''
-      );
-      console.log(
-        '  node mcp-docs-server.js build_context \'{"profile":"myProfile","query":"jwt","budgetTokens":1200}\''
-      );
-      return;
-    }
+async function readJson(file) {
+  return JSON.parse(await fs.readFile(file, "utf8"));
+}
 
-    if (cmd === "list_tools") {
-      console.log(JSON.stringify(list_tools(), null, 2));
-      return;
-    }
+async function writeJson(file, obj) {
+  await fs.writeFile(file, JSON.stringify(obj, null, 2));
+}
 
-    if (cmd === "get_sources") {
-      const res = await get_sources();
-      console.log(JSON.stringify(res, null, 2));
-      return;
-    }
+/* ===================== UTILS ===================== */
 
-    if (cmd === "preload_docs") {
-      await preloadDocs(true);
-      console.log("preload done");
-      return;
-    }
+function cleanText(text) {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/\u00A0/g, " ")
+    .trim();
+}
 
-    if (cmd === "refresh_index") {
-      const payload = JSON.parse(process.argv[3] || "{}");
-      await refresh_index(payload);
-      console.log("refresh complete");
-      return;
-    }
+function hashText(text) {
+  return crypto.createHash("sha256").update(text, "utf8").digest("hex");
+}
 
-    if (cmd === "search_chunks") {
-      const payload = JSON.parse(process.argv[3] || "{}");
-      if (!payload.query) {
-        console.error(
-          "search_chunks expects JSON with { query: string, topK?: number, profile?: string }"
+function estimateTokens(text) {
+  return Math.ceil(text.length / TOKEN_ESTIMATE.charsPerToken);
+}
+
+function tokenize(text) {
+  return (text.toLowerCase().match(/[a-zа-яё0-9_]+/gi) || []).filter(Boolean);
+}
+
+function chunkText(text, size, overlap) {
+  const chunks = [];
+  let i = 0;
+  while (i < text.length) {
+    const end = Math.min(i + size, text.length);
+    chunks.push(text.slice(i, end));
+    i = Math.max(0, end - overlap);
+  }
+  return chunks;
+}
+
+function detectSection(text) {
+  const head = text.slice(0, 2000);
+  const md = head.match(/^#{1,6}\s+(.+)$/m);
+  if (md) return md[1].trim();
+  const first = head.split("\n")[0]?.trim();
+  if (first && first.length > 8 && first.length < 120) return first;
+  return null;
+}
+
+/* ===================== WEB LOADER ===================== */
+
+function extractVisibleText(html) {
+  const dom = new JSDOM(html);
+  dom.window.document
+    .querySelectorAll("script, style, noscript")
+    .forEach((e) => e.remove());
+  return cleanText(dom.window.document.body?.textContent || "");
+}
+
+async function loadWebSource(url) {
+  const res = await fetch(url, { redirect: "follow" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
+  const ct = res.headers.get("content-type") || "";
+  const body = await res.text();
+  return ct.includes("html") ? extractVisibleText(body) : cleanText(body);
+}
+
+/* ===================== PROJECT AST LOADER ===================== */
+
+function extractProjectSymbols(code, filePath) {
+  const ast = babel.parse(code, {
+    sourceType: "module",
+    plugins: ["typescript", "jsx"],
+  });
+
+  const chunks = [];
+
+  traverse.default(ast, {
+    enter(path) {
+      const n = path.node;
+
+      if (
+        n.type === "FunctionDeclaration" ||
+        n.type === "ClassDeclaration" ||
+        n.type === "TSInterfaceDeclaration" ||
+        n.type === "TSTypeAliasDeclaration"
+      ) {
+        const name = n.id?.name;
+        if (!name) return;
+
+        const comment = n.leadingComments?.map((c) => c.value).join("\n") || "";
+
+        const signature = code.slice(n.start, n.body?.start || n.end);
+        const text = cleanText(
+          `
+${comment}
+${signature}
+File: ${filePath}
+`
         );
-        process.exit(2);
+
+        if (text.length > 50) {
+          chunks.push({
+            text,
+            section: name,
+          });
+        }
       }
-      const res = await search_chunks(payload);
-      console.log(JSON.stringify(res, null, 2));
-      return;
-    }
+    },
+  });
 
-    if (cmd === "build_context") {
-      const payload = JSON.parse(process.argv[3] || "{}");
-      if (!payload.query) {
-        console.error(
-          "build_context expects JSON with { query: string, profile?: string, budgetTokens?: number }"
-        );
-        process.exit(2);
+  return chunks;
+}
+
+/* ===================== INDEXING ===================== */
+
+async function indexEngine(engineId) {
+  await ensureEngineStore(engineId);
+  const cfg = JSON.parse(
+    await fs.readFile(ENGINES[engineId].sourcesFile, "utf8")
+  );
+
+  const storeFile = enginePath(engineId, "chunks.json");
+  const store = await readJson(storeFile);
+  const existing = new Set(store.chunks.map((c) => c.hash));
+
+  if (engineId === "web") {
+    for (const [profile, p] of Object.entries(cfg.web_recurses || {})) {
+      for (const url of p.seedUrls || []) {
+        const text = await loadWebSource(url);
+        const chunks = chunkText(text, p.chunk?.size, p.chunk?.overlap);
+        for (let i = 0; i < chunks.length; i++) {
+          const cleaned = cleanText(chunks[i]);
+          const hash = hashText(cleaned);
+          if (existing.has(hash)) continue;
+          store.chunks.push({
+            engineId,
+            source: url,
+            seq: i,
+            text: cleaned,
+            hash,
+            section: detectSection(cleaned),
+            estimatedTokens: estimateTokens(cleaned),
+          });
+        }
       }
-      const res = await build_context(
-        payload.profile,
-        payload.query,
-        payload.budgetTokens
-      );
-      console.log(JSON.stringify(res, null, 2));
-      return;
     }
-
-    console.error("Unknown command:", cmd);
-    process.exit(2);
-  } catch (e) {
-    console.error("Error:", e && e.stack ? e.stack : String(e));
-    process.exit(1);
-  }
-}
-
-/* ---------- MCP framing (Content-Length) ---------- */
-let readBuffer = "";
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", (chunk) => {
-  readBuffer += chunk;
-  try {
-    processBuffer();
-  } catch (e) {
-    stderr("processBuffer error:", e && e.stack ? e.stack : String(e));
-  }
-});
-process.stdin.on("end", () => {
-  stderr("stdin end");
-});
-
-function sendFramed(obj) {
-  const json = JSON.stringify(obj);
-  const header = `Content-Length: ${Buffer.byteLength(json, "utf8")}\r\n\r\n`;
-  process.stdout.write(header + json);
-}
-
-/* ---------- JSON-RPC helpers ---------- */
-function makeResult(id, result) {
-  return { jsonrpc: "2.0", id, result };
-}
-function makeError(id, code, message) {
-  return { jsonrpc: "2.0", id, error: { code, message } };
-}
-
-/* ---------- Tool spec ---------- */
-function getToolSpec() {
-  return [
-    {
-      name: "list_tools",
-      description: "List available tools",
-      inputSchema: { type: "object" },
-    },
-    {
-      name: "get_sources",
-      description: "Get configured doc sources",
-      inputSchema: { type: "object" },
-    },
-    {
-      name: "search_chunks",
-      description: "Search documentation chunks using BM25-like ranking",
-      inputSchema: {
-        type: "object",
-        properties: {
-          query: { type: "string" },
-          topK: { type: "number" },
-          profile: { type: ["string", "null"] },
-        },
-        required: ["query"],
-      },
-    },
-    {
-      name: "build_context",
-      description: "Build context from docs respecting token budget",
-      inputSchema: {
-        type: "object",
-        properties: {
-          profile: { type: ["string", "null"] },
-          query: { type: "string" },
-          budgetTokens: { type: "number" },
-        },
-        required: ["query"],
-      },
-    },
-    {
-      name: "refresh_index",
-      description: "Rebuild or refresh index",
-      inputSchema: {
-        type: "object",
-        properties: {
-          wipe: { type: "boolean" },
-          progress: { type: "boolean" },
-        },
-      },
-    },
-    {
-      name: "preload_docs",
-      description: "Download and chunk all sources from docs_sources.json",
-      inputSchema: { type: "object" },
-    },
-  ];
-}
-
-/* ---------- Tool executor ---------- */
-async function executeTool(tool, args = {}) {
-  // normalize boolean shorthand for preload
-  if (tool === "preload_docs") {
-    // allow preload_docs(true) -> progress=true
-    if (typeof args === "boolean") {
-      return await preloadDocs(args);
-    }
-    if (args && typeof args === "object" && args.progress !== undefined) {
-      return await preloadDocs(!!args.progress);
-    }
-    return await preloadDocs(false);
   }
 
-  switch (tool) {
-    case "list_tools":
-      return list_tools();
-    case "get_sources":
-      return await get_sources();
-    case "search_chunks":
-      return await search_chunks(args);
-    case "build_context":
-      return await build_context(args.profile, args.query, args.budgetTokens);
-    case "refresh_index":
-      return await refresh_index(args);
-    default:
-      throw new Error(`Unknown tool: ${tool}`);
-  }
-}
+  if (engineId === "project") {
+    for (const p of Object.values(cfg.local_recurses || {})) {
+      const files = await glob(p.include, {
+        cwd: p.root,
+        ignore: p.exclude,
+      });
 
-/* ---------- Message parsing ---------- */
-function processBuffer() {
-  while (true) {
-    const headerEnd = readBuffer.indexOf("\r\n\r\n");
-    if (headerEnd === -1) return;
-    const header = readBuffer.slice(0, headerEnd);
-    const m = header.match(/Content-Length:\s*(\d+)/i);
-    if (!m) {
-      stderr("Missing Content-Length in header; clearing buffer");
-      readBuffer = "";
-      return;
-    }
-    const contentLength = parseInt(m[1], 10);
-    const totalNeeded = headerEnd + 4 + contentLength;
-    if (readBuffer.length < totalNeeded) return; // wait for more data
-    const body = readBuffer.slice(headerEnd + 4, totalNeeded);
-    readBuffer = readBuffer.slice(totalNeeded);
-    void handleMessage(body).catch((e) =>
-      stderr(
-        "handleMessage top-level error:",
-        e && e.stack ? e.stack : String(e)
-      )
-    );
-  }
-}
+      for (const file of files) {
+        const abs = path.join(p.root, file);
+        const code = await fs.readFile(abs, "utf8");
+        const symbols = extractProjectSymbols(code, file);
 
-async function handleMessage(body) {
-  let msg;
-  try {
-    msg = JSON.parse(body);
-  } catch (e) {
-    stderr("Invalid JSON:", e && e.message);
-    return;
-  }
-
-  // initialize handshake
-  if (msg.method === "initialize") {
-    const resp = makeResult(msg.id, {
-      serverInfo: {
-        name: "local-docs-mcp",
-        version: "v3",
-        description:
-          "Local documentation search and context builder (MCP STDIO)",
-      },
-      tools: getToolSpec(),
-    });
-    sendFramed(resp);
-    return;
-  }
-
-  // tools/execute request
-  if (msg.method === "tools/execute") {
-    const params = msg.params || {};
-    const tool =
-      params.tool || params.name || (params.arguments && params.arguments.tool);
-    const args = params.arguments || params.args || params.arguments || {};
-    if (!tool) {
-      sendFramed(makeError(msg.id, -32602, "No tool specified in params"));
-      return;
-    }
-
-    try {
-      const result = await executeTool(tool, args);
-      // Return result under "output" (Continue often expects output wrapper)
-      sendFramed(makeResult(msg.id, { output: result }));
-    } catch (e) {
-      stderr("Tool execution error:", e && e.stack ? e.stack : String(e));
-      sendFramed(makeError(msg.id, -32000, String(e)));
-    }
-    return;
-  }
-
-  // simple ping/echo or unknown methods
-  if (msg.method === "ping") {
-    sendFramed(makeResult(msg.id, { ok: true }));
-    return;
-  }
-
-  sendFramed(makeError(msg.id, -32601, `Unknown method: ${msg.method}`));
-}
-
-/* ---------- Startup ---------- */
-stderr("mcp-docs-server v3 starting, cwd:", process.cwd());
-
-// If invoked with a CLI command (positional arg) — run CLI fallback and exit
-if (process.argv.length > 2 && !process.argv.includes("--mcp")) {
-  // run CLI style (legacy) if user passed explicit command
-  void runCliFallback().then(() => process.exit(0));
-} else {
-  // MCP STDIO mode: keep process running and listen on stdin
-  stderr("Entering MCP STDIO mode (listening on stdin/stdout).");
-
-  // auto preload if requested by flag or env
-  const autoPreload =
-    process.env.AUTO_PRELOAD === "1" ||
-    process.argv.includes("--auto-preload") ||
-    process.argv.includes("--preload");
-
-  if (autoPreload) {
-    (async () => {
-      try {
-        stderr("Auto-preload enabled: starting preloadDocs(true) ...");
-        await preloadDocs(true);
-        stderr("Auto-preload finished.");
-      } catch (e) {
-        stderr("Auto-preload failed:", e && e.stack ? e.stack : String(e));
+        for (const s of symbols) {
+          const hash = hashText(s.text);
+          if (existing.has(hash)) continue;
+          store.chunks.push({
+            engineId,
+            source: file,
+            seq: 0,
+            text: s.text,
+            hash,
+            section: s.section,
+            estimatedTokens: estimateTokens(s.text),
+          });
+        }
       }
-    })();
+    }
   }
 
-  // ensure process keeps running even if stdin is not closed
-  process.stdin.resume();
+  await writeJson(storeFile, store);
+}
+
+/* ===================== SEARCH CORE ===================== */
+
+function scoreChunks(chunks, query) {
+  const qTokens = tokenize(query);
+  const N = chunks.length || 1;
+
+  const df = new Map();
+  for (const c of chunks) {
+    for (const t of new Set(tokenize(c.text))) {
+      df.set(t, (df.get(t) || 0) + 1);
+    }
+  }
+
+  const avgLen = chunks.reduce((s, c) => s + c.text.length, 0) / N;
+
+  return chunks
+    .map((c) => {
+      const tf = new Map();
+      for (const t of tokenize(c.text)) {
+        tf.set(t, (tf.get(t) || 0) + 1);
+      }
+
+      let score = 0;
+      for (const t of qTokens) {
+        const f = tf.get(t) || 0;
+        const idf = Math.log((N + 1) / ((df.get(t) || 0) + 1)) + 1;
+        const denom =
+          f +
+          SEARCH_CONFIG.k1 *
+            (1 - SEARCH_CONFIG.b + SEARCH_CONFIG.b * (c.text.length / avgLen));
+        score += idf * ((f * (SEARCH_CONFIG.k1 + 1)) / denom);
+      }
+
+      if (c.section) {
+        if (tokenize(c.section).some((t) => qTokens.includes(t))) score *= 1.25;
+      }
+
+      if (c.seq < 3) score *= 1.12;
+
+      if (qTokens.some((t) => c.text.slice(0, 300).toLowerCase().includes(t)))
+        score *= 1.15;
+
+      return { c, score };
+    })
+    .sort((a, b) => b.score - a.score);
+}
+
+/* ===================== API ===================== */
+/* ===================== HIGH-LEVEL API ===================== */
+
+export const docs = {
+  search: async (query, topK) => search("web", query, topK),
+  build_context: async (query, budget) => buildContext("web", query, budget),
+  get_sources: async () => JSON.parse(await readJson(ENGINES.web.sourcesFile)),
+  refresh_index: async () => refresh("web"),
+};
+
+export const project = {
+  search: async (query, topK) => search("project", query, topK),
+  build_context: async (query, budget) =>
+    buildContext("project", query, budget),
+  refresh_index: async () => refresh("project"),
+};
+
+// +++++autorefresh+++++++++++++
+
+let watcher = null;
+
+export function watchProjectIndex(rootPaths, debounceMs = 5000) {
+  if (watcher) watcher.close(); // закрываем предыдущий watcher
+  watcher = null;
+
+  watcher = chokidar.watch(rootPaths, {
+    ignored: /node_modules|\.git/,
+    persistent: true,
+    ignoreInitial: true,
+    awaitWriteFinish: {
+      stabilityThreshold: 2000, // ждём завершения записи файлов
+      pollInterval: 1000,
+    },
+  });
+
+  let timer = null;
+
+  const scheduleRefresh = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(async () => {
+      await refresh("project");
+    }, debounceMs);
+  };
+
+  watcher
+    .on("add", scheduleRefresh)
+    .on("change", scheduleRefresh)
+    .on("unlink", scheduleRefresh);
 }
