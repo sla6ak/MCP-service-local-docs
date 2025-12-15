@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Unified MCP Docs Engine
+ * Unified MCP Docs Engine (Vectra-backed)
  * - Web docs indexing (HTML → text → chunks)
  * - Project indexing (AST → symbols → structured chunks)
- * - Single BM25-based search core
+ * - Vector-based semantic search (Vectra)
  * - Separate indexes per engineId: web | project
  * - High-precision context builder for LLMs
+ * - Incremental autorefresh via chokidar
  */
 
 import fs from "node:fs/promises";
@@ -18,6 +19,7 @@ import glob from "fast-glob";
 import * as babel from "@babel/parser";
 import traverse from "@babel/traverse";
 import chokidar from "chokidar";
+import { LocalIndex } from "vectra";
 
 /* ===================== CONFIG ===================== */
 
@@ -39,8 +41,6 @@ const ENGINES = {
 
 const SEARCH_CONFIG = {
   topK: 12,
-  k1: 1.5,
-  b: 0.75,
 };
 
 const TOKEN_ESTIMATE = {
@@ -49,30 +49,35 @@ const TOKEN_ESTIMATE = {
   maxBudget: 6000,
 };
 
+const PERSIST_FILES = {
+  projectFileIndex: path.join(
+    INDEX_ROOT,
+    ENGINES.project.indexDir,
+    "project-file-index.json"
+  ),
+};
+
+/* ===================== VECTOR INDEX ===================== */
+
+const vectorIndexes = {};
+
+async function getVectorIndex(engineId) {
+  if (!vectorIndexes[engineId]) {
+    const dir = path.join(INDEX_ROOT, ENGINES[engineId].indexDir, "vectra");
+    fssync.mkdirSync(dir, { recursive: true });
+
+    const idx = new LocalIndex({ folderPath: dir });
+    await idx.load(); // ❗ КРИТИЧНО
+    vectorIndexes[engineId] = idx;
+  }
+  return vectorIndexes[engineId];
+}
+
 /* ===================== STORAGE ===================== */
 
 async function ensureEngineStore(engineId) {
   const dir = path.join(INDEX_ROOT, ENGINES[engineId].indexDir);
   await fs.mkdir(dir, { recursive: true });
-  await initJson(path.join(dir, "chunks.json"), { chunks: [] });
-}
-
-function enginePath(engineId, file) {
-  return path.join(INDEX_ROOT, ENGINES[engineId].indexDir, file);
-}
-
-async function initJson(file, initial) {
-  if (!fssync.existsSync(file)) {
-    await fs.writeFile(file, JSON.stringify(initial, null, 2));
-  }
-}
-
-async function readJson(file) {
-  return JSON.parse(await fs.readFile(file, "utf8"));
-}
-
-async function writeJson(file, obj) {
-  await fs.writeFile(file, JSON.stringify(obj, null, 2));
 }
 
 /* ===================== UTILS ===================== */
@@ -92,18 +97,27 @@ function estimateTokens(text) {
   return Math.ceil(text.length / TOKEN_ESTIMATE.charsPerToken);
 }
 
-function tokenize(text) {
-  return (text.toLowerCase().match(/[a-zа-яё0-9_]+/gi) || []).filter(Boolean);
-}
-
 function chunkText(text, size, overlap) {
-  const chunks = [];
-  let i = 0;
-  while (i < text.length) {
-    const end = Math.min(i + size, text.length);
-    chunks.push(text.slice(i, end));
-    i = Math.max(0, end - overlap);
+  if (/```[\s\S]*?```/.test(text)) {
+    return [text.trim()];
   }
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const chunks = [];
+  let current = "";
+
+  for (const s of sentences) {
+    if ((current + s).length > size) {
+      if (current.length) chunks.push(current.trim());
+      if (overlap && current.length > overlap) {
+        current = current.slice(current.length - overlap);
+      } else {
+        current = "";
+      }
+    }
+    current += s + " ";
+  }
+
+  if (current.trim().length) chunks.push(current.trim());
   return chunks;
 }
 
@@ -114,6 +128,231 @@ function detectSection(text) {
   const first = head.split("\n")[0]?.trim();
   if (first && first.length > 8 && first.length < 120) return first;
   return null;
+}
+
+/* ===================== PERSIST ===================== */
+
+const projectFileIndex = new Map();
+
+/* 🔧 FIX: debounce + atomic persist, чтобы избежать гонок */
+let persistTimer = null;
+
+function schedulePersistSave(delay = 1000) {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    saveProjectFileIndex().catch((e) =>
+      console.warn("[persist] save failed:", e.message)
+    );
+  }, delay);
+}
+
+async function loadProjectFileIndex() {
+  try {
+    const raw = await fs.readFile(PERSIST_FILES.projectFileIndex, "utf8");
+    const data = JSON.parse(raw);
+    projectFileIndex.clear();
+    for (const [file, hashes] of Object.entries(data)) {
+      projectFileIndex.set(file, new Set(hashes));
+    }
+  } catch (e) {
+    if (e.code !== "ENOENT") {
+      console.warn("[project-index] persist load failed:", e.message);
+    }
+  }
+}
+
+async function saveProjectFileIndex() {
+  const data = {};
+  for (const [file, hashes] of projectFileIndex.entries()) {
+    data[file] = [...hashes];
+  }
+
+  await fs.mkdir(path.dirname(PERSIST_FILES.projectFileIndex), {
+    recursive: true,
+  });
+
+  const tmp = PERSIST_FILES.projectFileIndex + ".tmp";
+  await fs.writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
+  await fs.rename(tmp, PERSIST_FILES.projectFileIndex); // atomic
+}
+
+/* ===================== UPSERT ===================== */
+const engineLocks = new Map(); // engineId -> Promise queue
+
+async function withEngineLock(engineId, fn) {
+  const prev = engineLocks.get(engineId) || Promise.resolve();
+  let release;
+  const next = new Promise((r) => (release = r));
+  engineLocks.set(
+    engineId,
+    prev.then(() => next)
+  );
+
+  try {
+    await prev;
+    return await fn();
+  } finally {
+    release();
+    if (engineLocks.get(engineId) === next) {
+      engineLocks.delete(engineId);
+    }
+  }
+}
+
+async function upsertVectorItem(index, engineId, item) {
+  return await withEngineLock(engineId, async () => {
+    const existing = await index.getItem(item.id);
+    if (existing) await index.deleteItem(item.id);
+    await index.insertItem(item);
+  });
+}
+
+/* ===================== INCREMENTAL PROJECT INDEX ===================== */
+
+async function removeFileFromIndex(index, filePath) {
+  const hashes = projectFileIndex.get(filePath);
+  if (!hashes) return;
+
+  for (const h of hashes) {
+    try {
+      await index.deleteItem(h);
+    } catch {}
+  }
+
+  projectFileIndex.delete(filePath);
+  schedulePersistSave(); // 🔧 FIX
+}
+const fileVersions = new Map();
+async function indexProjectFile(filePath, root) {
+  const version = Date.now();
+  fileVersions.set(filePath, version);
+  const index = await getVectorIndex("project");
+  const abs = path.join(root, filePath);
+
+  await removeFileFromIndex(index, filePath);
+
+  let code;
+  try {
+    code = await fs.readFile(abs, "utf8");
+  } catch {
+    return;
+  }
+
+  let symbols;
+  try {
+    symbols = extractProjectSymbols(code, filePath);
+  } catch (e) {
+    // 🔧 FIX: защита от бинарных / невалидных файлов
+    console.warn("[project-index] skip file:", filePath);
+    return;
+  }
+
+  const hashes = new Set();
+
+  /* 🔧 FIX: batching embeddings на уровень файла */
+  const embeddings = await Promise.all(symbols.map((s) => embedQueued(s.text)));
+
+  for (let i = 0; i < symbols.length; i++) {
+    const s = symbols[i];
+    const estimatedTokens = estimateTokens(s.text);
+    // 🔧 FIX: hard limit на символ
+    if (estimatedTokens > TOKEN_ESTIMATE.maxBudget) {
+      continue;
+    }
+    const hash = hashText(s.text);
+    hashes.add(hash);
+    if (await index.getItem(hash)) continue;
+    await upsertVectorItem(index, "project", {
+      id: hash,
+      vector: embeddings[i],
+      content: s.text,
+      metadata: {
+        engineId: "project",
+        source: filePath,
+        section: s.section,
+        estimatedTokens,
+      },
+    });
+  }
+
+  if (fileVersions.get(filePath) !== version) {
+    fileVersions.delete(filePath);
+    return;
+  } // ❗ отмена
+  projectFileIndex.set(filePath, hashes);
+  schedulePersistSave(); // 🔧 FIX
+}
+
+async function removeProjectFile(filePath) {
+  const index = await getVectorIndex("project");
+  await removeFileFromIndex(index, filePath);
+  fileVersions.delete(filePath);
+}
+
+/* ===================== EMBEDDINGS ===================== */
+
+async function embed(text, retries = 3) {
+  try {
+    const res = await fetch("http://localhost:11434/api/embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "mxbai-embed-large",
+        prompt: text.slice(0, 8000),
+      }),
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+    const json = await res.json();
+    return json.embedding;
+  } catch (e) {
+    if (retries > 0) {
+      await new Promise((r) => setTimeout(r, 500));
+      return embed(text, retries - 1);
+    }
+    throw e;
+  }
+}
+/* ===================== EMBEDDING QUEUE ===================== */
+
+const EMBED_CONCURRENCY = 2;
+
+// простая очередь: максимум EMBED_CONCURRENCY embed() одновременно
+let activeEmbeds = 0;
+const embedWaiters = [];
+
+async function embedQueued(text) {
+  if (activeEmbeds >= EMBED_CONCURRENCY) {
+    await new Promise((resolve) => embedWaiters.push(resolve));
+  }
+
+  activeEmbeds++;
+
+  try {
+    return await embed(text);
+  } finally {
+    activeEmbeds--;
+    const next = embedWaiters.shift();
+    if (next) next();
+  }
+}
+
+/* ===================== SEARCH ===================== */
+/* 🔧 FIX: отсутствовала реализация */
+
+async function search(engineId, query, topK = SEARCH_CONFIG.topK) {
+  const index = await getVectorIndex(engineId);
+  const vector = await embedQueued(query);
+  const results = await index.queryItems(vector, topK);
+
+  return results.map((r) => ({
+    id: r.item.id,
+    score: r.score,
+    text: r.item.content,
+    source: r.item.metadata.source,
+    section: r.item.metadata.section,
+    estimatedTokens: r.item.metadata.estimatedTokens,
+  }));
 }
 
 /* ===================== WEB LOADER ===================== */
@@ -138,78 +377,159 @@ async function loadWebSource(url) {
 
 function extractProjectSymbols(code, filePath) {
   const ast = babel.parse(code, {
-    sourceType: "module",
+    sourceType: "unambiguous",
     plugins: ["typescript", "jsx"],
   });
 
   const chunks = [];
+  const imports = new Set();
+  const exports = new Set();
 
   traverse.default(ast, {
     enter(path) {
       const n = path.node;
 
+      if (n.type === "ImportDeclaration" && n.source?.value)
+        imports.add(n.source.value);
+
+      if (n.type === "ExportNamedDeclaration" && n.declaration?.declarations)
+        n.declaration.declarations.forEach(
+          (d) => d.id?.name && exports.add(d.id.name)
+        );
+
+      if (n.type === "ExportDefaultDeclaration") exports.add("default");
+
+      // ===== EXISTING LOGIC — НЕ ТРОНУТА =====
       if (
         n.type === "FunctionDeclaration" ||
         n.type === "ClassDeclaration" ||
         n.type === "TSInterfaceDeclaration" ||
-        n.type === "TSTypeAliasDeclaration"
+        n.type === "TSTypeAliasDeclaration" ||
+        n.type === "TSDeclareFunction"
       ) {
         const name = n.id?.name;
         if (!name) return;
 
         const comment = n.leadingComments?.map((c) => c.value).join("\n") || "";
-
         const signature = code.slice(n.start, n.body?.start || n.end);
         const text = cleanText(
-          `
-${comment}
-${signature}
-File: ${filePath}
-`
+          `\n${comment}\n${signature}\nFile: ${filePath}\n`
         );
+        if (text.length > 50) chunks.push({ text, section: name });
+      }
 
-        if (text.length > 50) {
-          chunks.push({
-            text,
-            section: name,
-          });
-        }
+      if (
+        n.type === "VariableDeclarator" &&
+        n.init?.type === "ArrowFunctionExpression" &&
+        n.id?.type === "Identifier"
+      ) {
+        const name = n.id.name;
+        const comment =
+          path.parentPath?.parent?.leadingComments
+            ?.map((c) => c.value)
+            .join("\n") || "";
+        const signature = code.slice(n.start, n.end);
+        const text = cleanText(
+          `\n${comment}\n${signature}\nFile: ${filePath}\n`
+        );
+        if (text.length > 50) chunks.push({ text, section: name });
+      }
+
+      if (n.type === "ClassMethod" && n.key?.type === "Identifier") {
+        const className = path.parentPath?.parent?.id?.name || "AnonymousClass";
+        const name = `${className}.${n.key.name}`;
+        const comment = n.leadingComments?.map((c) => c.value).join("\n") || "";
+        const signature = code.slice(n.start, n.end);
+        const text = cleanText(
+          `\n${comment}\n${signature}\nFile: ${filePath}\n`
+        );
+        if (text.length > 50) chunks.push({ text, section: name });
       }
     },
   });
+
+  if (exports.size) {
+    chunks.push({
+      section: "__exports__",
+      text: cleanText(
+        `Exports:\n${[...exports].join("\n")}\nFile: ${filePath}`
+      ),
+    });
+  }
+
+  if (imports.size) {
+    chunks.push({
+      section: "__imports__",
+      text: cleanText(
+        `Imports:\n${[...imports].join("\n")}\nFile: ${filePath}`
+      ),
+    });
+  }
 
   return chunks;
 }
 
 /* ===================== INDEXING ===================== */
 
-async function indexEngine(engineId) {
+export async function indexEngine(engineId) {
   await ensureEngineStore(engineId);
+  if (engineId === "project" && watcher) {
+    await watcher.close();
+    watcher = null;
+  }
+
+  if (engineId === "project") {
+    await loadProjectFileIndex();
+  }
+
   const cfg = JSON.parse(
     await fs.readFile(ENGINES[engineId].sourcesFile, "utf8")
   );
-
-  const storeFile = enginePath(engineId, "chunks.json");
-  const store = await readJson(storeFile);
-  const existing = new Set(store.chunks.map((c) => c.hash));
+  const index = await getVectorIndex(engineId);
 
   if (engineId === "web") {
-    for (const [profile, p] of Object.entries(cfg.web_recurses || {})) {
+    for (const p of Object.values(cfg.web_recurses || {})) {
       for (const url of p.seedUrls || []) {
         const text = await loadWebSource(url);
         const chunks = chunkText(text, p.chunk?.size, p.chunk?.overlap);
-        for (let i = 0; i < chunks.length; i++) {
-          const cleaned = cleanText(chunks[i]);
-          const hash = hashText(cleaned);
-          if (existing.has(hash)) continue;
-          store.chunks.push({
-            engineId,
-            source: url,
-            seq: i,
-            text: cleaned,
-            hash,
-            section: detectSection(cleaned),
-            estimatedTokens: estimateTokens(cleaned),
+
+        // 1️⃣ подготовка чанков
+        const prepared = chunks
+          .map((c, i) => {
+            const cleaned = cleanText(c);
+            const estimatedTokens = estimateTokens(cleaned);
+
+            if (estimatedTokens > TOKEN_ESTIMATE.maxBudget) return null;
+
+            return {
+              cleaned,
+              estimatedTokens,
+              hash: hashText(cleaned),
+              seq: i,
+            };
+          })
+          .filter(Boolean);
+
+        // 2️⃣ батч embed
+        const embeddings = await Promise.all(
+          prepared.map((p) => embedQueued(p.cleaned))
+        );
+
+        // 3️⃣ вставка в vectra
+        for (let i = 0; i < prepared.length; i++) {
+          const pchunk = prepared[i];
+
+          await upsertVectorItem(index, "web", {
+            id: pchunk.hash,
+            vector: embeddings[i],
+            content: pchunk.cleaned,
+            metadata: {
+              engineId: "web",
+              source: url,
+              seq: pchunk.seq,
+              section: detectSection(pchunk.cleaned),
+              estimatedTokens: pchunk.estimatedTokens,
+            },
           });
         }
       }
@@ -218,129 +538,133 @@ async function indexEngine(engineId) {
 
   if (engineId === "project") {
     for (const p of Object.values(cfg.local_recurses || {})) {
-      const files = await glob(p.include, {
-        cwd: p.root,
-        ignore: p.exclude,
-      });
-
+      const files = await glob(p.include, { cwd: p.root, ignore: p.exclude });
       for (const file of files) {
-        const abs = path.join(p.root, file);
-        const code = await fs.readFile(abs, "utf8");
-        const symbols = extractProjectSymbols(code, file);
-
-        for (const s of symbols) {
-          const hash = hashText(s.text);
-          if (existing.has(hash)) continue;
-          store.chunks.push({
-            engineId,
-            source: file,
-            seq: 0,
-            text: s.text,
-            hash,
-            section: s.section,
-            estimatedTokens: estimateTokens(s.text),
-          });
-        }
+        if (!/\.(js|ts|jsx|tsx)$/.test(file)) continue; // 🔧 FIX
+        await indexProjectFile(file, p.root);
       }
     }
   }
-
-  await writeJson(storeFile, store);
 }
 
-/* ===================== SEARCH CORE ===================== */
+/* ===================== REFRESH ===================== */
+/* 🔧 FIX: refresh отсутствовал */
 
-function scoreChunks(chunks, query) {
-  const qTokens = tokenize(query);
-  const N = chunks.length || 1;
+async function refresh(engineId) {
+  await indexEngine(engineId);
+}
 
-  const df = new Map();
-  for (const c of chunks) {
-    for (const t of new Set(tokenize(c.text))) {
-      df.set(t, (df.get(t) || 0) + 1);
+/* ===================== CONTEXT BUILDER ===================== */
+
+/**
+ * v3 — architecture-aware buildContext
+ * - group by source file
+ * - exports → imports → symbols
+ */
+async function buildContext(engineId, query, budget) {
+  const hits = await search(engineId, query);
+  const bySource = new Map();
+
+  for (const h of hits) {
+    if (!bySource.has(h.source)) bySource.set(h.source, []);
+    bySource.get(h.source).push(h);
+  }
+
+  let used = 0;
+  const ctx = [];
+
+  for (const [, items] of bySource.entries()) {
+    const ordered = [
+      ...items.filter((i) => i.section === "__exports__"),
+      ...items.filter((i) => i.section === "__imports__"),
+      ...items.filter(
+        (i) => i.section !== "__imports__" && i.section !== "__exports__"
+      ),
+    ];
+
+    for (const h of ordered) {
+      if (used + h.estimatedTokens > budget) return ctx.join("\n\n");
+      ctx.push(h.text);
+      used += h.estimatedTokens;
     }
   }
 
-  const avgLen = chunks.reduce((s, c) => s + c.text.length, 0) / N;
-
-  return chunks
-    .map((c) => {
-      const tf = new Map();
-      for (const t of tokenize(c.text)) {
-        tf.set(t, (tf.get(t) || 0) + 1);
-      }
-
-      let score = 0;
-      for (const t of qTokens) {
-        const f = tf.get(t) || 0;
-        const idf = Math.log((N + 1) / ((df.get(t) || 0) + 1)) + 1;
-        const denom =
-          f +
-          SEARCH_CONFIG.k1 *
-            (1 - SEARCH_CONFIG.b + SEARCH_CONFIG.b * (c.text.length / avgLen));
-        score += idf * ((f * (SEARCH_CONFIG.k1 + 1)) / denom);
-      }
-
-      if (c.section) {
-        if (tokenize(c.section).some((t) => qTokens.includes(t))) score *= 1.25;
-      }
-
-      if (c.seq < 3) score *= 1.12;
-
-      if (qTokens.some((t) => c.text.slice(0, 300).toLowerCase().includes(t)))
-        score *= 1.15;
-
-      return { c, score };
-    })
-    .sort((a, b) => b.score - a.score);
+  return ctx.join("\n\n");
 }
 
 /* ===================== API ===================== */
-/* ===================== HIGH-LEVEL API ===================== */
 
 export const docs = {
   search: async (query, topK) => search("web", query, topK),
   build_context: async (query, budget) => buildContext("web", query, budget),
-  get_sources: async () => JSON.parse(await readJson(ENGINES.web.sourcesFile)),
-  refresh_index: async () => refresh("web"),
+  get_sources: async () =>
+    JSON.parse(await fs.readFile(ENGINES.web.sourcesFile, "utf8")),
+  refresh_index: async () => await refresh("web"),
 };
 
 export const project = {
   search: async (query, topK) => search("project", query, topK),
   build_context: async (query, budget) =>
     buildContext("project", query, budget),
-  refresh_index: async () => refresh("project"),
+  refresh_index: async () => {
+    await refresh("project");
+    const cfg = JSON.parse(
+      await fs.readFile(ENGINES.project.sourcesFile, "utf8")
+    );
+
+    const roots = Object.values(cfg.local_recurses || {}).map((p) => p.root);
+    watchProjectIndex(roots);
+  },
 };
 
-// +++++autorefresh+++++++++++++
+/* ===================== AUTOREFRESH ===================== */
 
 let watcher = null;
 
-export function watchProjectIndex(rootPaths, debounceMs = 5000) {
-  if (watcher) watcher.close(); // закрываем предыдущий watcher
-  watcher = null;
+/* 🔧 FIX: фильтрация по расширениям */
+const VALID_EXT = /\.(js|ts|jsx|tsx)$/i;
 
+export function watchProjectIndex(rootPaths, debounceMs = 5000) {
+  if (watcher) watcher.close();
   watcher = chokidar.watch(rootPaths, {
     ignored: /node_modules|\.git/,
     persistent: true,
     ignoreInitial: true,
     awaitWriteFinish: {
-      stabilityThreshold: 2000, // ждём завершения записи файлов
+      stabilityThreshold: 2000,
       pollInterval: 1000,
     },
   });
 
   let timer = null;
 
-  const scheduleRefresh = () => {
+  const scheduleFileIndex = (filePath, event) => {
+    if (!VALID_EXT.test(filePath)) return; // 🔧 FIX
+
     if (timer) clearTimeout(timer);
+
     timer = setTimeout(async () => {
-      await refresh("project");
+      const cfg = JSON.parse(
+        await fs.readFile(ENGINES.project.sourcesFile, "utf8")
+      );
+
+      for (const p of Object.values(cfg.local_recurses || {})) {
+        const absRoot = path.resolve(p.root);
+        const absFile = path.resolve(filePath);
+        if (!absFile.startsWith(absRoot)) continue;
+        const rel = path.relative(p.root, filePath);
+
+        if (event === "unlink") {
+          await removeProjectFile(rel);
+        } else {
+          await indexProjectFile(rel, p.root);
+        }
+      }
     }, debounceMs);
   };
 
   watcher
-    .on("add", scheduleRefresh)
-    .on("change", scheduleRefresh)
-    .on("unlink", scheduleRefresh);
+    .on("add", (p) => scheduleFileIndex(p, "add"))
+    .on("change", (p) => scheduleFileIndex(p, "change"))
+    .on("unlink", (p) => scheduleFileIndex(p, "unlink"));
 }
