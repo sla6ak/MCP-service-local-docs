@@ -20,11 +20,20 @@ import * as babel from "@babel/parser";
 import traverse from "@babel/traverse";
 import chokidar from "chokidar";
 import { LocalIndex } from "vectra";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /* ===================== CONFIG ===================== */
 
-const ROOT = process.cwd();
-const INDEX_ROOT = path.join(ROOT, "docs-index");
+const ROOT = __dirname;
+const INDEX_ROOT = path.join(ROOT, ".docs-index");
+
+const idx = new LocalIndex(INDEX_ROOT);
+if (!(await idx.isIndexCreated())) {
+  await idx.createIndex();
+}
 
 const ENGINES = {
   web: {
@@ -66,8 +75,13 @@ async function getVectorIndex(engineId) {
     const dir = path.join(INDEX_ROOT, ENGINES[engineId].indexDir, "vectra");
     fssync.mkdirSync(dir, { recursive: true });
 
-    const idx = new LocalIndex({ folderPath: dir });
-    await idx.load(); // ❗ КРИТИЧНО
+    const idx = new LocalIndex(dir);
+
+    // гарантируем существование на диске
+    if (!(await idx.isIndexCreated())) {
+      await idx.createIndex();
+    }
+
     vectorIndexes[engineId] = idx;
   }
   return vectorIndexes[engineId];
@@ -81,6 +95,23 @@ async function ensureEngineStore(engineId) {
 }
 
 /* ===================== UTILS ===================== */
+
+async function ensureVectraIndex(index, folderPath, vectorSize) {
+  const indexFile = path.join(folderPath, "index.json");
+
+  // ✅ если файл есть — индекс точно существует
+  if (fssync.existsSync(indexFile)) return;
+
+  // ✅ жёсткое создание индекса
+  await index.insertItem({
+    id: "__vectra_init__",
+    vector: new Array(vectorSize).fill(0),
+    content: "",
+    metadata: { __init__: true },
+  });
+
+  await index.deleteItem("__vectra_init__");
+}
 
 function cleanText(text) {
   return text
@@ -470,9 +501,14 @@ function extractProjectSymbols(code, filePath) {
 }
 
 /* ===================== INDEXING ===================== */
-
+let watcher = null;
 export async function indexEngine(engineId) {
   await ensureEngineStore(engineId);
+
+  // ✅ ЖЁСТКАЯ ГАРАНТИЯ: индекс существует ДО ЛЮБОЙ РАБОТЫ
+
+  const index = await getVectorIndex(engineId);
+
   if (engineId === "project" && watcher) {
     await watcher.close();
     watcher = null;
@@ -485,7 +521,6 @@ export async function indexEngine(engineId) {
   const cfg = JSON.parse(
     await fs.readFile(ENGINES[engineId].sourcesFile, "utf8")
   );
-  const index = await getVectorIndex(engineId);
 
   if (engineId === "web") {
     for (const p of Object.values(cfg.web_recurses || {})) {
@@ -596,35 +631,75 @@ async function buildContext(engineId, query, budget) {
 
 export const docs = {
   search: async (query, topK) => search("web", query, topK),
-  build_context: async (query, budget) => buildContext("web", query, budget),
-  get_sources: async () =>
-    JSON.parse(await fs.readFile(ENGINES.web.sourcesFile, "utf8")),
-  refresh_index: async () => await refresh("web"),
+  refresh_index: async () => {
+    try {
+      await refresh("web");
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Web docs index refreshed successfully",
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              "Web docs index refresh failed:\n" +
+              (String(err?.stack) || String(err?.message) || String(err)),
+          },
+        ],
+      };
+    }
+  },
 };
 
 export const project = {
   search: async (query, topK) => search("project", query, topK),
+
   build_context: async (query, budget) =>
     buildContext("project", query, budget),
-  refresh_index: async () => {
-    await refresh("project");
-    const cfg = JSON.parse(
-      await fs.readFile(ENGINES.project.sourcesFile, "utf8")
-    );
 
-    const roots = Object.values(cfg.local_recurses || {}).map((p) => p.root);
-    watchProjectIndex(roots);
+  refresh_index: async () => {
+    try {
+      await refresh("project");
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Project index refreshed successfully",
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              "Project index refresh failed:\n" +
+              (String(err?.stack) || String(err?.message) || String(err)),
+          },
+        ],
+      };
+    }
   },
 };
 
 /* ===================== AUTOREFRESH ===================== */
-
-let watcher = null;
+const cfg = JSON.parse(await fs.readFile(ENGINES.project.sourcesFile, "utf8"));
+const roots = Object.values(cfg.local_recurses || {}).map((p) => p.root);
+watchProjectIndex(roots);
 
 /* 🔧 FIX: фильтрация по расширениям */
 const VALID_EXT = /\.(js|ts|jsx|tsx)$/i;
 
-export function watchProjectIndex(rootPaths, debounceMs = 5000) {
+function watchProjectIndex(rootPaths, debounceMs = 5000) {
   if (watcher) watcher.close();
   watcher = chokidar.watch(rootPaths, {
     ignored: /node_modules|\.git/,

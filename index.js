@@ -7,9 +7,20 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 // Новые импорты из MCP-движка
-import { docs, project, watchProjectIndex } from "./mcp-docs-server.js";
+import { docs, project } from "./mcp-docs-server.js";
 
-watchProjectIndex(["*/**"]);
+/* ================= помошники ================= */
+function textResult(value) {
+  return {
+    content: [
+      {
+        type: "text",
+        text:
+          typeof value === "string" ? value : JSON.stringify(value, null, 2),
+      },
+    ],
+  };
+}
 
 /* ================= SERVER ================= */
 
@@ -26,149 +37,115 @@ const server = new Server(
 );
 
 /* ================= TOOLS LIST ================= */
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    /* ----------- DOCS ----------- */
-    {
-      name: "docs.get_sources",
-      description: "Get external documentation sources and profiles",
-      inputSchema: { type: "object" },
-    },
-    {
-      name: "docs.search",
-      description:
-        "Search external documentation index (web docs, frameworks, libraries)",
-      inputSchema: {
-        type: "object",
-        properties: {
-          query: { type: "string" },
-          topK: { type: "number" },
-        },
-        required: ["query"],
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  return {
+    tools: [
+      {
+        name: "docs.get_sources",
+        description: "Get external documentation sources",
+        inputSchema: { type: "object" },
       },
-    },
-    {
-      name: "docs.build_context",
-      description:
-        "Build context from external documentation for a given query",
-      inputSchema: {
-        type: "object",
-        properties: {
-          query: { type: "string" },
-          budgetTokens: { type: "number" },
-        },
-        required: ["query"],
-      },
-    },
-    {
-      name: "docs.refresh_index",
-      description: "Refresh external documentation index",
-      inputSchema: {
-        type: "object",
-        properties: {
-          wipe: { type: "boolean" },
+      {
+        name: "docs.search",
+        description: "Search external documentation",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
+            topK: { type: "number" },
+          },
+          required: ["query"],
         },
       },
-    },
-
-    /* ----------- PROJECT ----------- */
-    {
-      name: "project.search",
-      description:
-        "Search indexed project source code, comments, and public APIs",
-      inputSchema: {
-        type: "object",
-        properties: {
-          query: { type: "string" },
-          topK: { type: "number" },
-        },
-        required: ["query"],
-      },
-    },
-    {
-      name: "project.build_context",
-      description:
-        "Build context from project source code (API, comments, structure)",
-      inputSchema: {
-        type: "object",
-        properties: {
-          query: { type: "string" },
-          budgetTokens: { type: "number" },
-        },
-        required: ["query"],
-      },
-    },
-    {
-      name: "project.refresh_index",
-      description: "Refresh project source code index",
-      inputSchema: {
-        type: "object",
-        properties: {
-          wipe: { type: "boolean" },
+      {
+        name: "docs.build_context",
+        description: "Build context from docs",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
+            budgetTokens: { type: "number" },
+          },
+          required: ["query"],
         },
       },
-    },
-  ],
-}));
+      {
+        name: "docs.refresh_index",
+        description: "Refresh docs index",
+        inputSchema: { type: "object" },
+      },
+      {
+        name: "project.search",
+        description: "Search project code",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
+            topK: { type: "number" },
+          },
+          required: ["query"],
+        },
+      },
+      {
+        name: "project.build_context",
+        description: "Build context from project",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
+            budgetTokens: { type: "number" },
+          },
+          required: ["query"],
+        },
+      },
+      {
+        name: "project.refresh_index",
+        description: "Refresh project index",
+        inputSchema: { type: "object" },
+      },
+    ],
+  };
+});
 
 /* ================= TOOL CALLS ================= */
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args = {} } = request.params;
+  try {
+    const { name, arguments: args = {} } = request.params;
 
-  switch (name) {
-    /* ---------- DOCS ---------- */
+    switch (name) {
+      case "docs.get_sources":
+        return textResult(await docs.get_sources());
 
-    case "docs.get_sources":
-      return { content: [{ type: "json", json: await docs.get_sources() }] };
+      case "docs.search":
+        return textResult(await docs.search(args.query, args.topK));
 
-    case "docs.search":
-      return {
-        content: [
-          { type: "json", json: await docs.search(args.query, args.topK) },
-        ],
-      };
+      case "docs.build_context":
+        return textResult(
+          await docs.build_context(args.query, args.budgetTokens)
+        );
 
-    case "docs.build_context":
-      return {
-        content: [
-          {
-            type: "json",
-            json: await docs.build_context(args.query, args.budgetTokens),
-          },
-        ],
-      };
+      case "docs.refresh_index":
+        await docs.refresh_index();
+        return textResult("Docs index refreshed");
 
-    case "docs.refresh_index":
-      await docs.refresh_index();
-      return { content: [{ type: "json", json: { ok: true } }] };
+      case "project.search":
+        return textResult(await project.search(args.query, args.topK));
 
-    /* ---------- PROJECT ---------- */
+      case "project.build_context":
+        return textResult(
+          await project.build_context(args.query, args.budgetTokens)
+        );
 
-    case "project.search":
-      return {
-        content: [
-          { type: "json", json: await project.search(args.query, args.topK) },
-        ],
-      };
+      case "project.refresh_index":
+        await project.refresh_index();
+        return textResult("Project index refreshed");
 
-    case "project.build_context":
-      return {
-        content: [
-          {
-            type: "json",
-            json: await project.build_context(args.query, args.budgetTokens),
-          },
-        ],
-      };
-
-    case "project.refresh_index":
-      await project.refresh_index();
-      return { content: [{ type: "json", json: { ok: true } }] };
-
-    default:
-      throw new Error(`Unknown tool: ${name}`);
+      default:
+        return textResult(`Unknown tool: ${name}`);
+    }
+  } catch (err) {
+    return textResult(err?.stack || err?.message || String(err));
   }
 });
 
