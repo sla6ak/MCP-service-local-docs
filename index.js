@@ -7,7 +7,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 // Новые импорты из MCP-движка
-import { docs, project } from "./mcp-docs-server.js";
+import { docs, project } from "./src/mcp-docs-server.js";
 
 /* ================= помошники ================= */
 function textResult(value) {

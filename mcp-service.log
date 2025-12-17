@@ -1,0 +1,235 @@
+2025-12-17T12:17:15.362Z [ERROR] (node:5184) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+2025-12-17T12:17:39.307Z [INIT] engine start project
+2025-12-17T12:17:39.312Z [INIT] engine ready project
+2025-12-17T12:17:39.377Z [WARN] [project-index] skip file: index.js
+2025-12-17T12:17:39.383Z [WARN] [project-index] skip file: src/logger.js
+2025-12-17T12:17:39.478Z [WARN] [project-index] skip file: src/mcp-docs-server.js
+2025-12-17T12:17:39.482Z [WARN] [project-index] skip file: src/util/chunkText.js
+2025-12-17T12:17:39.485Z [WARN] [project-index] skip file: src/util/embed.js
+2025-12-17T12:17:39.487Z [WARN] [project-index] skip file: src/util/expandByGraph.js
+2025-12-17T12:17:39.496Z [WARN] [project-index] skip file: src/util/extractProjectSymbols.js
+2025-12-17T12:17:39.498Z [WARN] [project-index] skip file: src/util/loadWebSource.js
+2025-12-17T12:17:39.502Z [WARN] [project-index] skip file: src/util/mmrSelect.js
+2025-12-17T12:17:39.506Z [WARN] [project-index] skip file: src/util/normalizeImport.js
+2025-12-17T12:17:39.511Z [WARN] [project-index] skip file: src/util/text.js
+2025-12-17T12:17:39.514Z [ENGINE] ready project
+2025-12-17T12:21:00.205Z [WARN] [project-index] skip file: src/mcp-docs-server.js
+2025-12-17T12:21:00.205Z [WARN] [project-index] skip file: src/mcp-docs-server.js
+2025-12-17T12:21:00.240Z [WARN] [project-index] skip file: src/mcp-docs-server.js
+2025-12-17T12:22:39.001Z [ERROR] (node:9380) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+2025-12-17T12:23:04.746Z [INIT] engine start project
+2025-12-17T12:23:04.757Z [INIT] engine ready project
+2025-12-17T12:23:04.857Z [WARN] [project-index] skip file: index.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitMultiple (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:62:17)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:113:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:23:04.866Z [WARN] [project-index] skip file: src/logger.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitSingle (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:66:19)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:115:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:23:04.945Z [WARN] [project-index] skip file: src/mcp-docs-server.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitMultiple (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:62:17)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:113:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:23:04.950Z [WARN] [project-index] skip file: src/util/chunkText.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitSingle (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:66:19)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:115:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:23:04.954Z [WARN] [project-index] skip file: src/util/embed.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitSingle (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:66:19)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:115:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:23:04.958Z [WARN] [project-index] skip file: src/util/expandByGraph.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitSingle (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:66:19)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:115:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:23:04.968Z [WARN] [project-index] skip file: src/util/extractProjectSymbols.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitSingle (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:66:19)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:115:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:23:04.971Z [WARN] [project-index] skip file: src/util/loadWebSource.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitSingle (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:66:19)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:115:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:23:04.976Z [WARN] [project-index] skip file: src/util/mmrSelect.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitMultiple (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:62:17)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:113:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:23:04.981Z [WARN] [project-index] skip file: src/util/normalizeImport.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitSingle (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:66:19)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:115:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:23:04.985Z [WARN] [project-index] skip file: src/util/text.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitSingle (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:66:19)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:115:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:23:04.987Z [ENGINE] ready project
+2025-12-17T12:25:13.658Z [WARN] [project-index] skip file: src/util/extractProjectSymbols.js
+2025-12-17T12:25:13.660Z [WARN] [project-index] skip file: src/util/extractProjectSymbols.js
+2025-12-17T12:25:13.658Z [WARN] [project-index] skip file: src/util/extractProjectSymbols.js
+2025-12-17T12:25:13.661Z [WARN] [project-index] skip file: src/util/extractProjectSymbols.js 
+ cleanText is not defined 
+ ReferenceError: cleanText is not defined
+    at enter (file:///C:/Users/slaba/.continue/mcpServers/local-docs-mcp/src/util/extractProjectSymbols.js:50:22)
+    at NodePath._call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:49:20)
+    at NodePath.call (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:35:15)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:88:31)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+    at TraversalContext.visitSingle (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:66:19)
+    at TraversalContext.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:115:19)
+    at traverseNode (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\traverse-node.js:131:17)
+    at NodePath.visit (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\path\context.js:94:52)
+    at TraversalContext.visitQueue (C:\Users\slaba\.continue\mcpServers\local-docs-mcp\node_modules\@babel\traverse\lib\context.js:91:16)
+2025-12-17T12:25:16.274Z [ERROR] (node:7440) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+2025-12-17T12:25:52.769Z [INIT] engine start project
+2025-12-17T12:25:52.784Z [INIT] engine ready project
+2025-12-17T12:25:54.583Z [LOG] [VECTRA UPSERT] project 8797a340180e4b95696ffa7894d2ad5877cf7d0e14aa473a7694ebff9ea7532a 1024
+2025-12-17T12:25:54.618Z [LOG] [VECTRA UPSERT] project 6316028410476f615cd06b05fcad8cfd6b4309c80d6977d91d41328b2c58701c 1024
+2025-12-17T12:25:54.751Z [LOG] [VECTRA UPSERT] project 1f4ba44e3f10edfb71e3b159e6262fd6f3b119d422dc3bbc4606f6b6e5ac09e2 1024
+2025-12-17T12:25:54.798Z [LOG] [VECTRA UPSERT] project 6aad0bd2f3bea6900592564c875c692988542dbb284e48a96860cca1a39a838d 1024
+2025-12-17T12:25:54.834Z [LOG] [VECTRA UPSERT] project 5ff5e196243003086b9a655c9185cbdef2c3a86a22ff0a6202da7664a6b92ce9 1024
+2025-12-17T12:25:54.871Z [LOG] [VECTRA UPSERT] project d322fd763f454d6fa53e685cc0230678e5312b1c3b49bb1efc75c93a5e05e7e3 1024
+2025-12-17T12:25:54.908Z [LOG] [VECTRA UPSERT] project 0faf5ac0526b2d08c0e684564d59140542dfdcced4513d73e9e5303ea7dc2597 1024
+2025-12-17T12:25:54.940Z [LOG] [VECTRA UPSERT] project 1bc64391098acf694a26b6d180e324a3abe25a41f394cd43e9dd17d0a1347e2e 1024
+2025-12-17T12:25:54.976Z [LOG] [VECTRA UPSERT] project 8146fc9106e9cb5a59157605bb9fece6f4c13288c0ec5857c6f15fd4edc743c2 1024
+2025-12-17T12:25:55.017Z [LOG] [VECTRA UPSERT] project 6e8ee857a04fb5c745641c297fc330c14071eb03788c22f654d6013c1f05b32c 1024
+2025-12-17T12:25:55.063Z [LOG] [VECTRA UPSERT] project c923d7726d9d6682e47a4d840b1e62f4e1a78126e02fd773731377f2d1032f11 1024
+2025-12-17T12:25:55.104Z [LOG] [VECTRA UPSERT] project 3a72dde2f553f56aaa3753976565fb71bdb82822673583e0b3924aaea5fa142c 1024
+2025-12-17T12:25:55.144Z [LOG] [VECTRA UPSERT] project 08e765da3fc9b7150f29dab5051f2d1c70b82a1b5d78fda1e9644d833bea5b53 1024
+2025-12-17T12:25:55.181Z [LOG] [VECTRA UPSERT] project 0b12e49bba715d6ddbade9dea00822c53c10aa00d6d78e1f7b45a2c3ee4d4e74 1024
+2025-12-17T12:25:55.219Z [LOG] [VECTRA UPSERT] project 15649fb6b1265f66f238583af1f692697e7877f9bf490a4661c7cead590f5e90 1024
+2025-12-17T12:25:55.256Z [LOG] [VECTRA UPSERT] project 3ad85e7244e078d99291b8d6063264568d12a994192b7345d11b2cce07154cb9 1024
+2025-12-17T12:25:55.316Z [LOG] [VECTRA UPSERT] project 67c7f19785c562fcf36f870c065da3df3a2682fc7a568080fc0f598cb0032ae1 1024
+2025-12-17T12:25:55.357Z [LOG] [VECTRA UPSERT] project 82064601ee01e86b6f73bb5b903eb0d01a3abd28df8170d300952b526c7b240d 1024
+2025-12-17T12:25:55.405Z [LOG] [VECTRA UPSERT] project 2139457362039f84cb644d87aaad14f18e0d989998ebc970bd4cc718141c2e03 1024
+2025-12-17T12:25:55.446Z [LOG] [VECTRA UPSERT] project 9c3aa688a31a848ff158b55f7c435634395762eb64c55d96da574d56d3954618 1024
+2025-12-17T12:25:55.489Z [LOG] [VECTRA UPSERT] project f7416d42eb050facc28df6479ae36e5e2bfb69646206207183dafcce43929a91 1024
+2025-12-17T12:25:55.531Z [LOG] [VECTRA UPSERT] project 4d881ae5a7980fad7baab713b35090d65724948e07824c64bd96d833a8eb14b5 1024
+2025-12-17T12:25:55.573Z [LOG] [VECTRA UPSERT] project 986e0aa10b9e8293a0c3c64094f4d565a887b9d6d535fdd15acc7be474f5a4bf 1024
+2025-12-17T12:25:55.617Z [LOG] [VECTRA UPSERT] project 41eb81ab2d4a9719782ba23db0fabf6f2b9be8efe49d1c13a7483e189f1324de 1024
+2025-12-17T12:25:55.660Z [LOG] [VECTRA UPSERT] project 87b740addde7d6411f3f724f61a06352ff58a1a8b80697d6286290ea22ecd7bf 1024
+2025-12-17T12:25:55.706Z [LOG] [VECTRA UPSERT] project eedd5241ca4d7c2eb7ea9e8e464d5a13cc1a8bcb43b820cd35748b78ce8a2497 1024
+2025-12-17T12:25:55.750Z [LOG] [VECTRA UPSERT] project 8644c25abd85159a98f2de165ebfc0e0545ec1e8e97bc803e520f02c1a8ac4d8 1024
+2025-12-17T12:25:55.807Z [LOG] [VECTRA UPSERT] project c63bda0e729d6f21ef7e2814bd96d16dcab7f2ae86b21462b5fb464e88f6238b 1024
+2025-12-17T12:25:55.908Z [LOG] [VECTRA UPSERT] project 942a0a4756882c18a0d554540f3b149f4fdf0e5b53e99d115b60984115ba5415 1024
+2025-12-17T12:25:55.972Z [LOG] [VECTRA UPSERT] project 89e75ba6a38f6735ead978155855d3c6121db7d7db9b893329248fdeba20aaba 1024
+2025-12-17T12:25:56.083Z [LOG] [VECTRA UPSERT] project 7e155964b2949768bde213b163b4c252cb0adece64e019d50d1e40f29d433563 1024
+2025-12-17T12:25:56.150Z [LOG] [VECTRA UPSERT] project c4253a553f9e31b092ed380181528900ef70af3c27923a975a6968e988123036 1024
+2025-12-17T12:25:56.217Z [LOG] [VECTRA UPSERT] project a5fe9c8bc11c0582c63f328ec4e25efc200da9668b4f97394736fe4f1061247c 1024
+2025-12-17T12:25:56.310Z [LOG] [VECTRA UPSERT] project 6937177241845a7771dae8a5540cfc0363136a9e34d3ed448e3d1f934f18967c 1024
+2025-12-17T12:25:56.373Z [LOG] [VECTRA UPSERT] project 09d176c3a1bedcc9acbf1903140d1879c3a3a06bfbae97b45793cc1af5ae9553 1024
+2025-12-17T12:25:56.432Z [LOG] [VECTRA UPSERT] project 9e5676c64a6900e30b4564d960c2046a55da06852cb7e97bdab272ff77aa2828 1024
+2025-12-17T12:25:56.499Z [LOG] [VECTRA UPSERT] project 7bd869a461b6a7e2160baf3bb39a505e609ef0e4469117ca8dd8b3060c5b438f 1024
+2025-12-17T12:25:56.552Z [LOG] [VECTRA UPSERT] project c324af7f4489aecbe94f673cf5de2be1a89e4e09a65cdf09c7074e0e58c320e9 1024
+2025-12-17T12:25:56.605Z [LOG] [VECTRA UPSERT] project 279ccf014062b5332c84f502e97461b2a5d3f91c417d3c1d1975f7f70ed036ac 1024
+2025-12-17T12:25:56.662Z [LOG] [VECTRA UPSERT] project 9612d99b3f847b51a8eb511c1dc217de2bfa6d5a23923ae005e559bf7be0ad7d 1024
+2025-12-17T12:25:56.752Z [LOG] [VECTRA UPSERT] project 0ba1c6b237b3dd1a4adcd2049842d0ea4a4476f553d6c80d49512d5a4936396f 1024
+2025-12-17T12:25:56.835Z [LOG] [VECTRA UPSERT] project 4014fc289cae182926bffdf5ada6b42eb8622979f9390987f8811d4cb586e17e 1024
+2025-12-17T12:25:56.905Z [LOG] [VECTRA UPSERT] project 411c16b53c8d1270cf938f6f5981914d1cacb4153b91993e379bd6115321d3a3 1024
+2025-12-17T12:25:56.979Z [LOG] [VECTRA UPSERT] project bbc7b5b79383c41d94ec6f8e437d39113ff0fbe1914e200b61176480e41d1b4f 1024
+2025-12-17T12:25:57.034Z [LOG] [VECTRA UPSERT] project 81c5934eb033e0e520fd2457166cc7fd88ec5938baacb17ec5d4318367f46be0 1024
+2025-12-17T12:25:57.090Z [LOG] [VECTRA UPSERT] project 72b7852b564c13bf2ecd91c00523d98754ccbdcb998b655dee54b224b213149a 1024
+2025-12-17T12:25:57.149Z [LOG] [VECTRA UPSERT] project 026d1079046c3b495ee3b72f28375ed92cb8499b94ef80ea98818f77718b8283 1024
+2025-12-17T12:25:57.191Z [ENGINE] ready project
