@@ -48,7 +48,6 @@ import { embed } from "./util/embed.js";
 import path from "node:path";
 import glob from "fast-glob";
 import chokidar from "chokidar";
-import fssync from "node:fs";
 import { LocalIndex } from "vectra";
 import { fileURLToPath } from "node:url";
 //cbcvb
